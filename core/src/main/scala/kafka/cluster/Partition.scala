@@ -277,7 +277,7 @@ class Partition(val topic: String,
                                  newInSyncReplicas.map(_.brokerId).mkString(",")))
             // update ISR in ZK and cache
             updateIsr(newInSyncReplicas)
-            replicaManager.isrExpandRate.mark()
+            replicaManager.isrExpandRate.mark() // 标识发生了一次ISR集合扩张
           }
 
           // check if the HW of the partition can now be incremented
@@ -388,7 +388,7 @@ class Partition(val topic: String,
             updateIsr(newInSyncReplicas)
             // we may need to increment high watermark since ISR could be down to 1
 
-            replicaManager.isrShrinkRate.mark()
+            replicaManager.isrShrinkRate.mark() // 标识发生了一次ISR集合缩小
             maybeIncrementLeaderHW(leaderReplica)
           } else {
             false

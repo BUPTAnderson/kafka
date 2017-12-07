@@ -353,7 +353,7 @@ class ReplicaStateMachine(controller: KafkaController) extends Logging {
     def handleChildChange(parentPath : String, currentBrokerList : java.util.List[String]) {
       info("Broker change listener fired for path %s with children %s".format(parentPath, currentBrokerList.sorted.mkString(",")))
       inLock(controllerContext.controllerLock) {
-        if (hasStarted.get) {
+        if (hasStarted.get) { // 检测ReplicaStateMachine是否已经开启
           ControllerStats.leaderElectionTimer.time {
             try {
               val curBrokers = currentBrokerList.map(_.toInt).toSet.flatMap(zkUtils.getBrokerInfo)

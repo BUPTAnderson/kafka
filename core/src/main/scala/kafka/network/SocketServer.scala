@@ -506,6 +506,7 @@ private[kafka] class Processor(val id: Int,
       val resp = inflightResponses.remove(send.destination).getOrElse {
         throw new IllegalStateException(s"Send for ${send.destination} completed, but not in `inflightResponses`")
       }
+      // 调用updateRequestMetrics()方法更新度量对象
       resp.request.updateRequestMetrics()
       selector.unmute(send.destination)
     }

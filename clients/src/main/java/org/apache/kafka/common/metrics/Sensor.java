@@ -12,6 +12,11 @@
  */
 package org.apache.kafka.common.metrics;
 
+import org.apache.kafka.common.MetricName;
+import org.apache.kafka.common.metrics.CompoundStat.NamedMeasurable;
+import org.apache.kafka.common.utils.Time;
+import org.apache.kafka.common.utils.Utils;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -19,26 +24,28 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.kafka.common.MetricName;
-import org.apache.kafka.common.metrics.CompoundStat.NamedMeasurable;
-import org.apache.kafka.common.utils.Time;
-import org.apache.kafka.common.utils.Utils;
-
 /**
  * A sensor applies a continuous sequence of numerical values to a set of associated metrics. For example a sensor on
  * message size would record a sequence of message sizes using the {@link #record(double)} api and would maintain a set
  * of metrics about request sizes such as the average or max.
  */
 public final class Sensor {
-
+    // Metrics对象
     private final Metrics registry;
+    // 当前Sensor对象的名称, Metrics通过该名称区别不同的Sensor对象
     private final String name;
+    // Sensor数组类型, Sensor是可以分为多层的, 次字段指定了当前Sensor对象的父Sensor
     private final Sensor[] parents;
+    // 保存构成Sensor的度量对象
     private final List<Stat> stats;
+    // 保存构成Sensor的KafkaMetric对象, 当度量对象添加进Sensor时会创建对应的KafkaMetric对象(CompoundStat会创建多个), 并保存在此集合中
     private final List<KafkaMetric> metrics;
+    // 默认的配置信息
     private final MetricConfig config;
     private final Time time;
+    // 最后一次执行record()方法的时间戳
     private volatile long lastRecordTime;
+    // 长时间未使用Sensor会被认为是"过期Sensor", 由ExpireSensorTask线程负责进行清理, 此字段记录会成为"过期Sensor"的阈值
     private final long inactiveSensorExpirationTimeMs;
 
     Sensor(Metrics registry, String name, Sensor[] parents, MetricConfig config, Time time, long inactiveSensorExpirationTimeSeconds) {

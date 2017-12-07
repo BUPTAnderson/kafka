@@ -12,10 +12,10 @@
  */
 package org.apache.kafka.common;
 
+import org.apache.kafka.common.utils.Utils;
+
 import java.util.HashMap;
 import java.util.Map;
-
-import org.apache.kafka.common.utils.Utils;
 
 /**
  * The <code>MetricName</code> class encapsulates a metric's name, logical group and its related attributes. It should be constructed using metrics.MetricName(...).
@@ -59,10 +59,13 @@ import org.apache.kafka.common.utils.Utils;
  * }</pre>
  */
 public final class MetricName {
-
+    // 记录了KafkaMetric的名称
     private final String name;
+    // 记录了所属的逻辑组的名称
     private final String group;
+    // 保存了一些对KafkaMetric的描述信息
     private final String description;
+    // 记录了一些额外的键值对信息, 其中group和tags字段用来构成MBean的一部分
     private Map<String, String> tags;
     private int hash = 0;
 

@@ -12,11 +12,11 @@
  */
 package org.apache.kafka.common.metrics.stats;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.apache.kafka.common.metrics.MeasurableStat;
 import org.apache.kafka.common.metrics.MetricConfig;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A SampledStat records a single scalar value measured over one or more samples. Each sample is recorded over a
@@ -29,9 +29,11 @@ import org.apache.kafka.common.metrics.MetricConfig;
  * Subclasses of this class define different statistics measured using this basic pattern.
  */
 public abstract class SampledStat implements MeasurableStat {
-
+    // 指定每个样本的初始值
     private double initialValue;
+    // 当前使用的Sample的下标
     private int current = 0;
+    // 保存当前SampledStat中的多个Sample
     protected List<Sample> samples;
 
     public SampledStat(double initialValue) {
@@ -41,22 +43,24 @@ public abstract class SampledStat implements MeasurableStat {
 
     @Override
     public void record(MetricConfig config, double value, long timeMs) {
-        Sample sample = current(timeMs);
-        if (sample.isComplete(timeMs, config))
-            sample = advance(config, timeMs);
+        Sample sample = current(timeMs); // 得到当前的Sample对象
+        if (sample.isComplete(timeMs, config)) // 检测当前Sample是否已完成抽样
+            sample = advance(config, timeMs); // 获取下一个Sample
+        // 更新Sample, update()方法是抽象方法
         update(sample, config, value, timeMs);
-        sample.eventCount += 1;
+        sample.eventCount += 1; // 增加事件数
     }
 
+    // 根据配置指定的Sample数量决定创建新Sample还是使用之前的Sample
     private Sample advance(MetricConfig config, long timeMs) {
         this.current = (this.current + 1) % config.samples();
-        if (this.current >= samples.size()) {
+        if (this.current >= samples.size()) { // 创建新Sample
             Sample sample = newSample(timeMs);
             this.samples.add(sample);
             return sample;
         } else {
             Sample sample = current(timeMs);
-            sample.reset(timeMs);
+            sample.reset(timeMs); // 重用之前的Sample对象
             return sample;
         }
     }
@@ -67,7 +71,9 @@ public abstract class SampledStat implements MeasurableStat {
 
     @Override
     public double measure(MetricConfig config, long now) {
+        // purgeObsoleteSamples会将过期的Sample重置
         purgeObsoleteSamples(config, now);
+        // combine抽象方法完成计算
         return combine(this.samples, config, now);
     }
 
@@ -95,18 +101,22 @@ public abstract class SampledStat implements MeasurableStat {
 
     /* Timeout any windows that have expired in the absence of any events */
     protected void purgeObsoleteSamples(MetricConfig config, long now) {
-        long expireAge = config.samples() * config.timeWindowMs();
+        long expireAge = config.samples() * config.timeWindowMs(); // 计算过期时长
         for (int i = 0; i < samples.size(); i++) {
             Sample sample = this.samples.get(i);
             if (now - sample.lastWindowMs >= expireAge)
-                sample.reset(now);
+                sample.reset(now); // 检测到Sample过期, 则将其重置
         }
     }
 
     protected static class Sample {
+        // 指定样本的初始值
         public double initialValue;
+        // 记录当前样本的事件数
         public long eventCount;
+        // 记录当前样本的时间窗口开始的时间戳
         public long lastWindowMs;
+        // 记录样本的值
         public double value;
 
         public Sample(double initialValue, long now) {

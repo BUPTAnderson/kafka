@@ -52,6 +52,7 @@ object RequestChannel extends Logging {
   case class Request(processor: Int, connectionId: String, session: Session, private var buffer: ByteBuffer, startTimeMs: Long, securityProtocol: SecurityProtocol) {
     // These need to be volatile because the readers are in the network thread and the writers are in the request
     // handler threads or the purgatory threads
+    // 下面是一下记录操作时间的字段. 注意, 由于这些字段在多个线程中比较和修改, 使用@volatile修饰, 保证可见性
     @volatile var requestDequeueTimeMs = -1L
     @volatile var apiLocalCompleteTimeMs = -1L
     @volatile var responseCompleteTimeMs = -1L
@@ -126,10 +127,12 @@ object RequestChannel extends Logging {
       if (apiRemoteCompleteTimeMs < 0)
         apiRemoteCompleteTimeMs = responseCompleteTimeMs
 
+      // 计算Request在RequestChannel中的等待时间
       val requestQueueTime = math.max(requestDequeueTimeMs - startTimeMs, 0)
       val apiLocalTime = math.max(apiLocalCompleteTimeMs - requestDequeueTimeMs, 0)
       val apiRemoteTime = math.max(apiRemoteCompleteTimeMs - apiLocalCompleteTimeMs, 0)
       val apiThrottleTime = math.max(responseCompleteTimeMs - apiRemoteCompleteTimeMs, 0)
+      // 计算Response在RequestChannel中的等待时间
       val responseQueueTime = math.max(responseDequeueTimeMs - responseCompleteTimeMs, 0)
       val responseSendTime = math.max(endTimeMs - responseDequeueTimeMs, 0)
       val totalTime = endTimeMs - startTimeMs
@@ -146,10 +149,12 @@ object RequestChannel extends Logging {
       metricNames.foreach { metricName =>
         val m = RequestMetrics.metricsMap(metricName)
         m.requestRate.mark()
+        // 更新requestQueueTimeHist
         m.requestQueueTimeHist.update(requestQueueTime)
         m.localTimeHist.update(apiLocalTime)
         m.remoteTimeHist.update(apiRemoteTime)
         m.throttleTimeHist.update(apiThrottleTime)
+        // 更新responseQueueTimeHist
         m.responseQueueTimeHist.update(responseQueueTime)
         m.responseSendTimeHist.update(responseSendTime)
         m.totalTimeHist.update(totalTime)
@@ -165,6 +170,7 @@ object RequestChannel extends Logging {
   }
 
   case class Response(processor: Int, request: Request, responseSend: Send, responseAction: ResponseAction) {
+    // 更新时间戳为当前时间
     request.responseCompleteTimeMs = SystemTime.milliseconds
 
     def this(processor: Int, request: Request, responseSend: Send) =
@@ -245,6 +251,7 @@ class RequestChannel(val numProcessors: Int, val queueSize: Int) extends KafkaMe
   def receiveResponse(processor: Int): RequestChannel.Response = {
     val response = responseQueues(processor).poll()
     if (response != null)
+      // 更新responseDequeueTimeMs为当前时间戳
       response.request.responseDequeueTimeMs = SystemTime.milliseconds
     response
   }
@@ -274,13 +281,13 @@ class RequestMetrics(name: String) extends KafkaMetricsGroup {
   val requestQueueTimeHist = newHistogram("RequestQueueTimeMs", biased = true, tags)
   // time a request takes to be processed at the local broker 负责统计Request在当前Broker中处理的用时
   val localTimeHist = newHistogram("LocalTimeMs", biased = true, tags)
-  // time a request takes to wait on remote brokers (currently only relevant to fetch and produce requests) 负责统计此broker发送的Request在远端
+  // time a request takes to wait on remote brokers (currently only relevant to fetch and produce requests) 负责统计此broker发送的Request在远端Broker中处理的用时
   val remoteTimeHist = newHistogram("RemoteTimeMs", biased = true, tags)
   // time a request is throttled (only relevant to fetch and produce requests)
   val throttleTimeHist = newHistogram("ThrottleTimeMs", biased = true, tags)
   // time a response spent in a response queue 负责统计Response在RequestChannel中等待的时间
   val responseQueueTimeHist = newHistogram("ResponseQueueTimeMs", biased = true, tags)
-  // time to send the response to the requester
+  // time to send the response to the requester 负责统计发送Response的用时
   val responseSendTimeHist = newHistogram("ResponseSendTimeMs", biased = true, tags)
   val totalTimeHist = newHistogram("TotalTimeMs", biased = true, tags)
 }

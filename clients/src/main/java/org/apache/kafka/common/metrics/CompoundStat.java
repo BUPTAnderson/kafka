@@ -26,11 +26,11 @@ import java.util.List;
  */
 public interface CompoundStat extends Stat {
 
-    public List<NamedMeasurable> stats();
+    public List<NamedMeasurable> stats(); // 由多个NamedMeasurable构成
 
     public static class NamedMeasurable {
 
-        private final MetricName name;
+        private final MetricName name; // 封装了一个个Measurable对象
         private final Measurable stat;
 
         public NamedMeasurable(MetricName name, Measurable stat) {

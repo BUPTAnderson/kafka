@@ -273,6 +273,7 @@ class KafkaServer(val config: KafkaConfig, time: Time = SystemTime, threadNamePr
         checkpointBrokerId(config.brokerId)
 
         /* register broker metrics */
+        // 调用registerStats方法
         registerStats()
 
         brokerState.newState(RunningAsBroker)
