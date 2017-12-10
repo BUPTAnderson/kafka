@@ -100,9 +100,11 @@ class KafkaServer(val config: KafkaConfig, time: Time = SystemTime, threadNamePr
   private val isStartingUp = new AtomicBoolean(false)
 
   private var shutdownLatch = new CountDownLatch(1)
-
+  // jmxPrefix是用于构成MBean名称的一部分
   private val jmxPrefix: String = "kafka.server"
+  // 读取配置的MetricReporter类型
   private val reporters: java.util.List[MetricsReporter] = config.metricReporterClasses
+  // 默认会创建添加JmxReporter对象
   reporters.add(new JmxReporter(jmxPrefix))
 
   // This exists because the Metrics package from clients has its own Time implementation.
@@ -112,7 +114,8 @@ class KafkaServer(val config: KafkaConfig, time: Time = SystemTime, threadNamePr
   var metrics: Metrics = null
 
   private val metricConfig: MetricConfig = new MetricConfig()
-    .samples(config.metricNumSamples)
+    .samples(config.metricNumSamples) // 设置Sample的个数， 默认是2
+    // 设置Sample的时间
     .timeWindow(config.metricSampleWindowMs, TimeUnit.MILLISECONDS)
 
   val brokerState: BrokerState = new BrokerState
@@ -188,6 +191,7 @@ class KafkaServer(val config: KafkaConfig, time: Time = SystemTime, threadNamePr
 
       val canStartup = isStartingUp.compareAndSet(false, true)
       if (canStartup) {
+        // 创建Metrics对象，其中第四个参数是enableExpiration，即标识开启ExpireSensorTask任务
         metrics = new Metrics(metricConfig, reporters, kafkaMetricsTime, true)
         quotaManagers = QuotaFactory.instantiate(config, metrics, time)
 

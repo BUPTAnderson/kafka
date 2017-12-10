@@ -106,12 +106,13 @@ public final class Sensor {
         this.lastRecordTime = timeMs;
         synchronized (this) {
             // increment all the stats
+            // 调用stats集合中每个Stat对象的record()方法
             for (int i = 0; i < this.stats.size(); i++)
                 this.stats.get(i).record(config, value, timeMs);
-            checkQuotas(timeMs);
+            checkQuotas(timeMs); // 检测是否超出了MetricConfig指定的上下限
         }
         for (int i = 0; i < parents.length; i++)
-            parents[i].record(value, timeMs);
+            parents[i].record(value, timeMs); // 调用每个父Sensor的record()方法
     }
 
     /**
@@ -124,12 +125,12 @@ public final class Sensor {
     public void checkQuotas(long timeMs) {
         for (int i = 0; i < this.metrics.size(); i++) {
             KafkaMetric metric = this.metrics.get(i);
-            MetricConfig config = metric.config();
+            MetricConfig config = metric.config(); // 获取MetricsConfig对象
             if (config != null) {
-                Quota quota = config.quota();
+                Quota quota = config.quota(); // 获取MetricsConfig对象中的Quota对象
                 if (quota != null) {
-                    double value = metric.value(timeMs);
-                    if (!quota.acceptable(value)) {
+                    double value = metric.value(timeMs); // 计算最终的度量值
+                    if (!quota.acceptable(value)) { // 检测度量值是否超出上下限
                         throw new QuotaViolationException(
                             metric.metricName(),
                             value,
@@ -155,6 +156,7 @@ public final class Sensor {
      */
     public synchronized void add(CompoundStat stat, MetricConfig config) {
         this.stats.add(Utils.notNull(stat));
+        // 遍历CompoundStat中的每个子Stat对象
         for (NamedMeasurable m : stat.stats()) {
             KafkaMetric metric = new KafkaMetric(this, m.name(), m.stat(), config == null ? this.config : config, time);
             this.registry.registerMetric(metric);
@@ -178,13 +180,17 @@ public final class Sensor {
      * @param config A special configuration for this metric. If null use the sensor default configuration.
      */
     public synchronized void add(MetricName metricName, MeasurableStat stat, MetricConfig config) {
+        // 创建KafkaMetric对象
         KafkaMetric metric = new KafkaMetric(new Object(),
                                              Utils.notNull(metricName),
                                              Utils.notNull(stat),
                                              config == null ? this.config : config,
                                              time);
+        // 将KafkaMetric保存到Metrics中，创建并注册对应Mbean
         this.registry.registerMetric(metric);
+        // 添加到metrics集合
         this.metrics.add(metric);
+        // 添加到stats集合
         this.stats.add(stat);
     }
 

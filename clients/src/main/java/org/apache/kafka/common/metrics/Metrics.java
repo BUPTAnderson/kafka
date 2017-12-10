@@ -56,13 +56,18 @@ import org.slf4j.LoggerFactory;
  * </pre>
  */
 public class Metrics implements Closeable {
-
+    // MetricConfig对象，默认的配置信息。
     private final MetricConfig config;
+    // 保存了添加到Metrics中的KafkaMetric对象
     private final ConcurrentMap<MetricName, KafkaMetric> metrics;
+    // 保存了添加到Metrics中的Sensor对象
     private final ConcurrentMap<String, Sensor> sensors;
+    // 记录了每个Sensor的子Sensor集合
     private final ConcurrentMap<Sensor, List<Sensor>> childrenSensors;
+    // 保存了使用的MetricsReporter对象，默认是JmxReporter
     private final List<MetricsReporter> reporters;
     private final Time time;
+    // JDK提供的ScheduledThreadPoolExecutor类型，用于执行ExpireSensorTask定时任务
     private final ScheduledThreadPoolExecutor metricsScheduler;
     private static final Logger log = LoggerFactory.getLogger(Metrics.class);
 
@@ -129,6 +134,7 @@ public class Metrics implements Closeable {
             reporter.init(new ArrayList<KafkaMetric>());
 
         // Create the ThreadPoolExecutor only if expiration of Sensors is enabled.
+        // 创建ScheduledThreadPoolExecutor
         if (enableExpiration) {
             this.metricsScheduler = new ScheduledThreadPoolExecutor(1);
             // Creating a daemon thread to not block shutdown
@@ -137,12 +143,13 @@ public class Metrics implements Closeable {
                     return Utils.newThread("SensorExpiryThread", runnable, true);
                 }
             });
-            this.metricsScheduler.scheduleAtFixedRate(new ExpireSensorTask(), 30, 30, TimeUnit.SECONDS);
+            this.metricsScheduler.scheduleAtFixedRate(new ExpireSensorTask(), 30, 30, TimeUnit.SECONDS); // 启动定时任务
         } else {
             this.metricsScheduler = null;
         }
 
         addMetric(metricName("count", "kafka-metrics-count", "total number of registered metrics"),
+            // 创建一个记录metrics集合大小的Measurable对象，并注册到Metrics中
             new Measurable() {
                 @Override
                 public double measure(MetricConfig config, long now) {
@@ -279,11 +286,13 @@ public class Metrics implements Closeable {
      * @return The sensor that is created
      */
     public synchronized Sensor sensor(String name, MetricConfig config, long inactiveSensorExpirationTimeSeconds, Sensor... parents) {
-        Sensor s = getSensor(name);
+        Sensor s = getSensor(name); // 根据name从sensors集合中获取Sensor对象
         if (s == null) {
+            // 创建Sensor对象
             s = new Sensor(this, name, parents, config == null ? this.config : config, time, inactiveSensorExpirationTimeSeconds);
-            this.sensors.put(name, s);
+            this.sensors.put(name, s); // 保存到sensors集合中
             if (parents != null) {
+                // 通过childrenSensors记录Sensor的层级关系
                 for (Sensor parent : parents) {
                     List<Sensor> children = childrenSensors.get(parent);
                     if (children == null) {
@@ -378,8 +387,9 @@ public class Metrics implements Closeable {
         MetricName metricName = metric.metricName();
         if (this.metrics.containsKey(metricName))
             throw new IllegalArgumentException("A metric named '" + metricName + "' already exists, can't register another one.");
-        this.metrics.put(metricName, metric);
+        this.metrics.put(metricName, metric); // 向metrics中添加KafkaMetric对象
         for (MetricsReporter reporter : reporters)
+            // 向每个MetricsReporter中注册KafkaMetric对象
             reporter.metricChange(metric);
     }
 

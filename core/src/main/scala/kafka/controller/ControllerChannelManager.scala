@@ -85,6 +85,7 @@ class ControllerChannelManager(controllerContext: ControllerContext, config: Kaf
   }
 
   private def addNewBroker(broker: Broker) {
+    // 创建消息队列
     val messageQueue = new LinkedBlockingQueue[QueueItem]
     debug("Controller %d trying to connect to broker %d".format(config.brokerId, broker.id))
     val brokerEndPoint = broker.getBrokerEndPoint(config.interBrokerSecurityProtocol)
@@ -98,6 +99,7 @@ class ControllerChannelManager(controllerContext: ControllerContext, config: Kaf
         config.saslMechanismInterBrokerProtocol,
         config.saslInterBrokerHandshakeRequestEnable
       )
+      // 创建Selector对象
       val selector = new Selector(
         NetworkReceive.UNLIMITED,
         Selector.NO_IDLE_TIMEOUT_MS,

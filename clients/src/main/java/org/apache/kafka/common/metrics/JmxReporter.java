@@ -73,8 +73,8 @@ public class JmxReporter implements MetricsReporter {
     @Override
     public void metricChange(KafkaMetric metric) {
         synchronized (LOCK) {
-            KafkaMbean mbean = addAttribute(metric);
-            reregister(mbean);
+            KafkaMbean mbean = addAttribute(metric); // 添加KafkaMetric
+            reregister(mbean); // 重新注册KafkaMBean
         }
     }
 
@@ -103,11 +103,12 @@ public class JmxReporter implements MetricsReporter {
     private KafkaMbean addAttribute(KafkaMetric metric) {
         try {
             MetricName metricName = metric.metricName();
-            String mBeanName = getMBeanName(metricName);
+            String mBeanName = getMBeanName(metricName); // 获取KafkaMBean的名称
+            // 如果没有此名称的KafkaMBean则创建
             if (!this.mbeans.containsKey(mBeanName))
                 mbeans.put(mBeanName, new KafkaMbean(mBeanName));
             KafkaMbean mbean = this.mbeans.get(mBeanName);
-            mbean.setAttribute(metricName.name(), metric);
+            mbean.setAttribute(metricName.name(), metric); // 以属性的形式添加KafkaMetric
             return mbean;
         } catch (JMException e) {
             throw new KafkaException("Error creating mbean attribute for metricName :" + metric.metricName(), e);
@@ -120,9 +121,10 @@ public class JmxReporter implements MetricsReporter {
      */
     private String getMBeanName(MetricName metricName) {
         StringBuilder mBeanName = new StringBuilder();
-        mBeanName.append(prefix);
-        mBeanName.append(":type=");
+        mBeanName.append(prefix); // 第一部分是前缀，服务端默认是kafka.server
+        mBeanName.append(":type="); // 第二部分是MetricName中的group字段
         mBeanName.append(metricName.group());
+        // 第三部分由MetricName中的tags集合构成
         for (Map.Entry<String, String> entry : metricName.tags().entrySet()) {
             if (entry.getKey().length() <= 0 || entry.getValue().length() <= 0)
                 continue;
@@ -152,8 +154,9 @@ public class JmxReporter implements MetricsReporter {
     }
 
     private void reregister(KafkaMbean mbean) {
-        unregister(mbean);
+        unregister(mbean); // 先取消KafkaMBean的注册
         try {
+            // 调用MBeanServer.registerMBean()方法重新注册KafkaMBean
             ManagementFactory.getPlatformMBeanServer().registerMBean(mbean, mbean.name());
         } catch (JMException e) {
             throw new KafkaException("Error registering mbean " + mbean.name(), e);
@@ -161,7 +164,8 @@ public class JmxReporter implements MetricsReporter {
     }
 
     private static class KafkaMbean implements DynamicMBean {
-        private final ObjectName objectName;
+        private final ObjectName objectName; // Mbean的名称
+        // 保存了添加的KafkaMetric对象
         private final Map<String, KafkaMetric> metrics;
 
         public KafkaMbean(String mbeanName) throws MalformedObjectNameException {
@@ -174,13 +178,13 @@ public class JmxReporter implements MetricsReporter {
         }
 
         public void setAttribute(String name, KafkaMetric metric) {
-            this.metrics.put(name, metric);
+            this.metrics.put(name, metric); // 记录KafkaMetric对象
         }
 
         @Override
         public Object getAttribute(String name) throws AttributeNotFoundException, MBeanException, ReflectionException {
             if (this.metrics.containsKey(name))
-                return this.metrics.get(name).value();
+                return this.metrics.get(name).value(); // 返回指定KafkaMetric中的度量值
             else
                 throw new AttributeNotFoundException("Could not find attribute " + name);
         }
@@ -189,6 +193,7 @@ public class JmxReporter implements MetricsReporter {
         public AttributeList getAttributes(String[] names) {
             try {
                 AttributeList list = new AttributeList();
+                // 循环遍历name并调用getAttribute()方法
                 for (String name : names)
                     list.add(new Attribute(name, getAttribute(name)));
                 return list;
@@ -220,6 +225,7 @@ public class JmxReporter implements MetricsReporter {
             return new MBeanInfo(this.getClass().getName(), "", attrs, null, null, null);
         }
 
+        // 继承自DynamicMBean接口的invoke()方法，setAttribute()方法，setAttributes()方法，具体实现就是直接抛出UnsupportedOperationException
         @Override
         public Object invoke(String name, Object[] params, String[] sig) throws MBeanException, ReflectionException {
             throw new UnsupportedOperationException("Set not allowed.");
